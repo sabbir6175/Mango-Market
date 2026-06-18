@@ -90,7 +90,13 @@ function AdminDashboard() {
           : o.id.slice(-8).toUpperCase().includes(search.trim().toUpperCase()) ||
             o.phone?.includes(search.trim()) ||
             o.customerName?.toLowerCase().includes(search.trim().toLowerCase())
-      ),
+      )
+      .sort((a, b) => {
+        if (filter !== "all") return 0;
+        if (a.status === "pending" && b.status !== "pending") return -1;
+        if (a.status !== "pending" && b.status === "pending") return 1;
+        return 0;
+      }),
     [orders, filter, search]
   );
 
@@ -227,9 +233,23 @@ function AdminDashboard() {
         <div className="flex flex-col gap-3">
           {filteredOrders.map((order) => {
             const style = STATUS_STYLES[order.status] || STATUS_STYLES.pending;
-            const date = order.createdAt?.toDate?.();
+            const date  = order.createdAt?.toDate?.();
             return (
-              <div key={order.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+              <div
+                key={order.id}
+                className={`rounded-2xl overflow-hidden transition-shadow ${
+                  order.status === "pending"
+                    ? "bg-white border-2 border-amber-300 shadow-md hover:shadow-lg"
+                    : "bg-white border border-gray-100 shadow-sm hover:shadow-md"
+                }`}
+              >
+                {/* Pending top bar */}
+                {order.status === "pending" && (
+                  <div className="px-5 py-1.5 flex items-center gap-2 border-b border-amber-200">
+                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                    <p className="text-[12px] font-bold text-amber-600">নতুন অর্ডার — এখনো কনফার্ম হয়নি</p>
+                  </div>
+                )}
 
                 {/* Card header */}
                 <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 flex-wrap gap-2">
@@ -261,7 +281,6 @@ function AdminDashboard() {
                     <span className="mt-0.5">📍</span>
                     <span>{order.address}</span>
                   </p>
-
                   <div className="bg-gray-50 rounded-xl px-4 py-3 flex flex-col gap-1.5">
                     {order.items?.map((item, i) => (
                       <div key={i} className="flex justify-between text-sm">
@@ -270,7 +289,6 @@ function AdminDashboard() {
                       </div>
                     ))}
                   </div>
-
                   {order.note && (
                     <p className="text-sm text-gray-400 flex items-start gap-1.5">
                       <span>📝</span> {order.note}
