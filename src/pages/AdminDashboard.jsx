@@ -3,7 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "../firebase/config";
 import { getAllOrders, updateOrderStatus } from "../firebase/orders";
+import { getProducts, addProduct, updateProduct, deleteProduct, seedProducts } from "../firebase/products";
+import { PRODUCTS } from "../data/products";
 import ParticlesCanvas from "../components/ParticlesCanvas";
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, Legend,
+} from "recharts";
 
 const STATUS_LABELS = {
   pending:   "নতুন",
@@ -28,6 +34,233 @@ const STAT_CONFIG = [
   { key: "delivered", label: "ডেলিভারি",     icon: "🚚", color: "bg-blue-50 text-blue-600" },
 ];
 
+const PIE_COLORS = { pending: "#fbbf24", confirmed: "#10b981", delivered: "#3b82f6", cancelled: "#f87171" };
+
+const EMPTY_PRODUCT = { name: "", price: "", image: "/images/product.svg" };
+
+function ProductsPanel() {
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [form, setForm] = useState(EMPTY_PRODUCT);
+  const [editId, setEditId] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [seeded, setSeeded] = useState(false);
+
+  useEffect(() => { load(); }, []);
+
+  async function load() {
+    setLoading(true);
+    try { setProducts(await getProducts()); }
+    catch { /* ignore */ }
+    finally { setLoading(false); }
+  }
+
+  async function handleSeed() {
+    setSaving(true);
+    await seedProducts(PRODUCTS);
+    await load();
+    setSaving(false);
+    setSeeded(true);
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!form.name.trim() || !form.price) return;
+    setSaving(true);
+    try {
+      if (editId) {
+        await updateProduct(editId, { name: form.name, price: Number(form.price), image: form.image });
+      } else {
+        await addProduct({ name: form.name, price: Number(form.price), image: form.image });
+      }
+      setForm(EMPTY_PRODUCT);
+      setEditId(null);
+      await load();
+    } finally { setSaving(false); }
+  }
+
+  function startEdit(p) {
+    setEditId(p.id);
+    setForm({ name: p.name, price: p.price, image: p.image || "/images/product.svg" });
+  }
+
+  async function handleDelete(id) {
+    if (!window.confirm("এই প্রোডাক্ট ডিলিট করবেন?")) return;
+    await deleteProduct(id);
+    setProducts((prev) => prev.filter((p) => p.id !== id));
+  }
+
+  return (
+    <div className="space-y-5">
+      {/* Seed button — only if no products */}
+      {!loading && products.length === 0 && !seeded && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 text-center">
+          <p className="text-amber-700 font-semibold mb-3">Firebase এ কোনো প্রোডাক্ট নেই। ডিফল্ট প্রোডাক্ট যোগ করুন?</p>
+          <button
+            onClick={handleSeed}
+            disabled={saving}
+            className="px-5 py-2 rounded-xl bg-[var(--color-primary)] text-white font-bold text-sm hover:bg-[var(--color-primary-dark)] transition-colors disabled:opacity-60"
+          >
+            {saving ? "যোগ হচ্ছে..." : "ডিফল্ট প্রোডাক্ট যোগ করুন"}
+          </button>
+        </div>
+      )}
+
+      {/* Add / Edit form */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+        <p className="font-bold text-gray-700 mb-4">{editId ? "✏️ প্রোডাক্ট এডিট করুন" : "➕ নতুন প্রোডাক্ট যোগ করুন"}</p>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          <input
+            type="text"
+            placeholder="প্রোডাক্টের নাম"
+            value={form.name}
+            onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+            className="border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-light)]"
+            required
+          />
+          <div className="flex gap-3">
+            <input
+              type="number"
+              placeholder="দাম (৳)"
+              value={form.price}
+              onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
+              className="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-light)]"
+              required min="1"
+            />
+            <input
+              type="text"
+              placeholder="ছবির path (যেমন /images/product.svg)"
+              value={form.image}
+              onChange={(e) => setForm((f) => ({ ...f, image: e.target.value }))}
+              className="flex-[2] border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-light)]"
+            />
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              disabled={saving}
+              className="px-5 py-2.5 rounded-xl bg-[var(--color-primary)] text-white font-bold text-sm hover:bg-[var(--color-primary-dark)] transition-colors disabled:opacity-60"
+            >
+              {saving ? "সেভ হচ্ছে..." : editId ? "আপডেট করুন" : "যোগ করুন"}
+            </button>
+            {editId && (
+              <button
+                type="button"
+                onClick={() => { setEditId(null); setForm(EMPTY_PRODUCT); }}
+                className="px-5 py-2.5 rounded-xl bg-gray-100 text-gray-600 font-bold text-sm hover:bg-gray-200 transition-colors"
+              >
+                বাতিল
+              </button>
+            )}
+          </div>
+        </form>
+      </div>
+
+      {/* Product list */}
+      {loading ? (
+        <div className="text-center py-10">
+          <div className="w-8 h-8 border-4 border-[var(--color-primary-light)] border-t-[var(--color-primary)] rounded-full animate-spin mx-auto" />
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {products.map((p) => (
+            <div key={p.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-4 flex items-center gap-4">
+              <img src={p.image || "/images/product.svg"} alt={p.name} className="w-14 h-14 rounded-xl object-cover bg-orange-50" />
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-gray-800 text-[15px] truncate">{p.name}</p>
+                <p className="text-[var(--color-primary)] font-semibold text-sm mt-0.5">{Number(p.price).toLocaleString("bn-BD")}৳</p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => startEdit(p)}
+                  className="px-3.5 py-2 rounded-xl bg-blue-50 text-blue-600 font-semibold text-xs hover:bg-blue-100 transition-colors"
+                >
+                  ✏️ এডিট
+                </button>
+                <button
+                  onClick={() => handleDelete(p.id)}
+                  className="px-3.5 py-2 rounded-xl bg-red-50 text-red-500 font-semibold text-xs hover:bg-red-100 transition-colors"
+                >
+                  🗑️ ডিলিট
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AnalyticsSection({ orders }) {
+  // Last 7 days bar chart data
+  const barData = useMemo(() => {
+    const days = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const label = d.toLocaleDateString("bn-BD", { day: "numeric", month: "short" });
+      const key = d.toDateString();
+      days.push({ label, count: 0, revenue: 0, key });
+    }
+    orders.forEach((o) => {
+      const d = o.createdAt?.toDate?.();
+      if (!d) return;
+      const entry = days.find((x) => x.key === d.toDateString());
+      if (entry) { entry.count += 1; entry.revenue += o.total || 0; }
+    });
+    return days;
+  }, [orders]);
+
+  // Pie chart data
+  const pieData = useMemo(() => {
+    const counts = { pending: 0, confirmed: 0, delivered: 0, cancelled: 0 };
+    orders.forEach((o) => { if (counts[o.status] !== undefined) counts[o.status]++; });
+    return Object.entries(counts)
+      .filter(([, v]) => v > 0)
+      .map(([k, v]) => ({ name: STATUS_LABELS[k], value: v, key: k }));
+  }, [orders]);
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+      {/* Bar chart */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+        <p className="text-sm font-bold text-gray-600 mb-3">📊 গত ৭ দিনের অর্ডার</p>
+        <ResponsiveContainer width="100%" height={180}>
+          <BarChart data={barData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+            <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} allowDecimals={false} />
+            <Tooltip
+              contentStyle={{ borderRadius: 10, fontSize: 12, border: "none", boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}
+              formatter={(v) => [`${v} টি`, "অর্ডার"]}
+            />
+            <Bar dataKey="count" fill="#f57c00" radius={[6, 6, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Pie chart */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+        <p className="text-sm font-bold text-gray-600 mb-3">🥧 অর্ডার স্ট্যাটাস বিভাজন</p>
+        <ResponsiveContainer width="100%" height={180}>
+          <PieChart>
+            <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={65} innerRadius={35}>
+              {pieData.map((entry) => (
+                <Cell key={entry.key} fill={PIE_COLORS[entry.key]} />
+              ))}
+            </Pie>
+            <Tooltip
+              contentStyle={{ borderRadius: 10, fontSize: 12, border: "none", boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}
+              formatter={(v, n) => [`${v} টি`, n]}
+            />
+            <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
 function AdminDashboard() {
   const navigate = useNavigate();
   const [checkingAuth, setCheckingAuth] = useState(true);
@@ -36,6 +269,7 @@ function AdminDashboard() {
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
+  const [activeTab, setActiveTab] = useState("orders");
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -120,6 +354,22 @@ function AdminDashboard() {
           </div>
           <div className="flex items-center gap-2">
             <button
+              onClick={() => setActiveTab("orders")}
+              className={`px-3.5 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                activeTab === "orders" ? "bg-[var(--color-primary)] text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-600"
+              }`}
+            >
+              📦 অর্ডার
+            </button>
+            <button
+              onClick={() => setActiveTab("products")}
+              className={`px-3.5 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                activeTab === "products" ? "bg-[var(--color-primary)] text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-600"
+              }`}
+            >
+              🥭 প্রোডাক্ট
+            </button>
+            <button
               onClick={loadOrders}
               className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors"
             >
@@ -138,7 +388,11 @@ function AdminDashboard() {
 
       <div className="max-w-[1000px] mx-auto px-5 py-6 relative z-10">
 
-        {/* Stats */}
+        {/* Products Tab */}
+        {activeTab === "products" && <ProductsPanel />}
+
+        {/* Orders Tab */}
+        {activeTab === "orders" && (<>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
           {STAT_CONFIG.map(({ key, label, icon, color }) => (
             <button
@@ -170,6 +424,9 @@ function AdminDashboard() {
             {stats.delivered} টি ডেলিভারি সম্পন্ন
           </div>
         </div>
+
+        {/* Analytics */}
+        {!loading && orders.length > 0 && <AnalyticsSection orders={orders} />}
 
         {/* Search */}
         <div className="relative mb-4">
@@ -323,6 +580,8 @@ function AdminDashboard() {
             );
           })}
         </div>
+
+        </>)}
 
       </div>
     </div>

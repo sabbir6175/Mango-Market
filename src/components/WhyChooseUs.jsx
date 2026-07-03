@@ -1,4 +1,4 @@
-import { useScrollAnimation } from "../hooks/useScrollAnimation";
+import FadeIn from "./FadeIn";
 import { handleAnchorClick } from "../utils/smoothScroll";
 
 const FEATURES = [
@@ -21,79 +21,71 @@ const REASONS = [
 
 const GALLERY_COUNT = 9;
 
-function WhyChooseUs() {
-  const titleRef = useScrollAnimation();
-  const galleryRef = useScrollAnimation();
-  const featuresRef = useScrollAnimation();
-  const reasonsRef = useScrollAnimation();
-
+export default function WhyChooseUs() {
   return (
-    <section className="py-16 bg-white">
+    <section id="why" className="py-16 bg-white">
       <div className="container mx-auto max-w-[1100px] px-5">
-        <h2
-          ref={titleRef}
-          className="scroll-reveal text-center text-[clamp(24px,4vw,34px)] font-bold text-[var(--color-primary-dark)] mb-9"
-        >
-          কেন আমাদের হাড়িভাঙ্গা আম নিবেন?
-        </h2>
 
-        <div ref={galleryRef} className="scroll-reveal grid grid-cols-3 gap-2.5 mb-10">
-          {Array.from({ length: GALLERY_COUNT }).map((_, i) => (
-            <img
-              key={i}
-              src="/images/gallery.svg"
-              alt={`হাড়িভাঙ্গা আম ${i + 1}`}
-              className="w-full aspect-square object-cover rounded-md bg-[var(--color-bg-soft)]"
-            />
-          ))}
-        </div>
+        <FadeIn>
+          <h2 className="text-center text-[clamp(24px,4vw,34px)] font-bold text-[var(--color-primary-dark)] mb-9">
+            কেন আমাদের হাড়িভাঙ্গা আম নিবেন?
+          </h2>
+        </FadeIn>
 
-        <div ref={featuresRef} className="scroll-reveal max-w-[640px] mx-auto mb-6">
-          <h3 className="text-lg text-[var(--color-primary-dark)] font-bold mb-3.5">
-            হাড়িভাঙ্গা আম এর বিশেষ গুনাগুন ও বৈশিষ্ট্য :-
-          </h3>
-          <ul className="flex flex-col gap-2.5">
-            {FEATURES.map((f) => (
-              <li key={f} className="relative pl-6.5">
-                <span className="absolute left-0 top-0 text-[var(--color-primary)] font-bold">
-                  ✔
-                </span>
-                {f}
-              </li>
+        <FadeIn delay={0.1}>
+          <div className="grid grid-cols-3 gap-2.5 mb-10">
+            {Array.from({ length: GALLERY_COUNT }).map((_, i) => (
+              <img
+                key={i}
+                src="/images/gallery.svg"
+                alt={`হাড়িভাঙ্গা আম ${i + 1}`}
+                className="w-full aspect-square object-cover rounded-md bg-[var(--color-bg-soft)]"
+              />
             ))}
-          </ul>
-        </div>
+          </div>
+        </FadeIn>
+
+        <FadeIn delay={0.1}>
+          <div className="max-w-[640px] mx-auto mb-6">
+            <h3 className="text-lg text-[var(--color-primary-dark)] font-bold mb-3.5">
+              হাড়িভাঙ্গা আম এর বিশেষ গুনাগুন ও বৈশিষ্ট্য :-
+            </h3>
+            <ul className="flex flex-col gap-2.5">
+              {FEATURES.map((f) => (
+                <li key={f} className="relative pl-6.5">
+                  <span className="absolute left-0 top-0 text-[var(--color-primary)] font-bold">✔</span>
+                  {f}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </FadeIn>
 
         <div className="flex justify-center my-7">
-          <a href="#order" onClick={handleAnchorClick} className="btn-primary">
-            অর্ডার করতে চাই
-          </a>
+          <a href="#order" onClick={handleAnchorClick} className="btn-primary">অর্ডার করতে চাই</a>
         </div>
 
-        <div ref={reasonsRef} className="scroll-reveal max-w-[640px] mx-auto mb-6">
-          <h3 className="text-lg text-[var(--color-primary-dark)] font-bold mb-3.5">
-            আমাদের কাছ থেকে কেন নিবেন :-
-          </h3>
-          <ul className="flex flex-col gap-2.5">
-            {REASONS.map((r) => (
-              <li key={r} className="relative pl-6.5">
-                <span className="absolute left-0 top-0 text-[var(--color-primary)] font-bold">
-                  ✔
-                </span>
-                {r}
-              </li>
-            ))}
-          </ul>
-        </div>
+        <FadeIn delay={0.1}>
+          <div className="max-w-[640px] mx-auto mb-6">
+            <h3 className="text-lg text-[var(--color-primary-dark)] font-bold mb-3.5">
+              আমাদের কাছ থেকে কেন নিবেন :-
+            </h3>
+            <ul className="flex flex-col gap-2.5">
+              {REASONS.map((r) => (
+                <li key={r} className="relative pl-6.5">
+                  <span className="absolute left-0 top-0 text-[var(--color-primary)] font-bold">✔</span>
+                  {r}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </FadeIn>
 
         <div className="flex justify-center my-7">
-          <a href="#order" onClick={handleAnchorClick} className="btn-primary">
-            অর্ডার করতে চাই
-          </a>
+          <a href="#order" onClick={handleAnchorClick} className="btn-primary">অর্ডার করতে চাই</a>
         </div>
+
       </div>
     </section>
   );
 }
-
-export default WhyChooseUs;
